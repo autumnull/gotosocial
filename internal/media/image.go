@@ -30,6 +30,7 @@ import (
 	"github.com/buckket/go-blurhash"
 	"github.com/disintegration/imaging"
 	"github.com/superseriousbusiness/gotosocial/internal/iotools"
+	"github.com/makeworld-the-better-one/dither"
 
 	// import to init webp encode/decoding.
 	_ "golang.org/x/image/webp"
@@ -110,13 +111,25 @@ func (m *gtsImage) Thumbnail() *gtsImage {
 		maxHeight = 512
 	)
 
+	img := m.image
+
 	// Check the receiving image is within max thumnail bounds.
-	if m.Width() <= maxWidth && m.Height() <= maxHeight {
-		return &gtsImage{image: imaging.Clone(m.image)}
+	if m.Width() > maxWidth || m.Height() > maxHeight {
+		// Image is too large, needs to be resized to thumbnail max.
+		img = imaging.Fit(img, maxWidth, maxHeight, imaging.Linear)
 	}
 
-	// Image is too large, needs to be resized to thumbnail max.
-	img := imaging.Fit(m.image, maxWidth, maxHeight, imaging.Linear)
+	palette := []color.Color{
+		color.RGBA{0  , 0  , 0  , 255},
+		color.RGBA{255, 255, 255, 255},
+		color.RGBA{250, 1 ,  250, 255},
+	}
+
+	d := dither.NewDitherer(palette)
+	d.Mapper = dither.PixelMapperFromMatrix(dither.ClusteredDotDiagonal8x8, 0.9)
+	newimg := d.Dither(img)
+	if newimg != nil {img = newimg}
+
 	return &gtsImage{image: img}
 }
 
